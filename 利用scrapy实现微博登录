@@ -1,0 +1,40 @@
+利用scrapy框架实现了模拟登录PC网页端的新浪微博
+
+主要思路如下:
+模拟登录，顾名思义，就是通过python模拟人在浏览器的行为的过程，与上一篇模拟登录豆瓣类似，其核心在于不断的抓登录时返回的包，这些包就是我们人在访问各种媒体
+时候，媒体服务器给我们返回的response，我们需要不断模拟从开始登录到登录成功这个过程中，服务器向人request数据、服务器给人response结果的过程。
+
+我们首先在浏览器登录一次新浪微博，在charles中观察抓包情况，发现从点击登录到登陆成功其实就是
+<200> post 人在该请求对应的url中将用户名密码等数据以post的形式传递给该url页面
+<200> get  以get的形式访问该请求对应的url
+<302> get  以get的形式转地址访问该请求对应的url
+<200> get  以get的形式访问
+
+
+首先进入微博登录首页
+https://weibo.com/
+
+试着登录一次，通过抓包软件发现提交信息的url是:
+https://login.sina.com.cn/sso/login.php?client=ssologin.js(v1.4.19)
+
+需要的数据有很多，涉及到了rsa与base64加密算法来获得用户名与密码，也有需要通过“预登陆”来获得servertime、nonce、pcid、pubkey、rsakv的五个数据
+
+预登陆就是通过get给予预登陆url部分属性来访问得到上述五个数据的过程。
+https://login.sina.com.cn/sso/prelogin.php?
+{'entry':"weibo",'callback':"sinaSSOController.preloginCallBack",'su':su,'rsakt':"mod",'checkpin':'1','client':'ssologin.js(v1.4.19)','_':ser_time}
+
+得到了所有数据之后，post给上面提交信息的url，然后就需要模拟新浪微博的302重定向请求，重定向请求的url可以通过抓包软件直接获得，在该url中可以发现有一个
+“ticket”属性我们没有见过，但这个属性可以在上面post请求返回的响应中获得，只是需要一些字符串的处理操作。
+
+发出302重定向请求后，还需要再次get一个地址：
+'https://weibo.com/nguide/interest' 
+
+
+请求该url后，就登陆成功了。
+
+在模拟登陆的过程中需要注意：
+1、cookie一定要保留
+2、上述第二个200请求我们并没有模拟访问，这里我怀疑是在我们提交了post数据请求后，新浪端自动给我们进行了该访问。
+3、模拟登陆的过程就是从头到尾不断的“寻找响应的url”、“转向响应的url”、“寻找响应的url”...的过程，抓包工具给了我们很好的帮助作用。
+4、可能会出现验证码的情况，目前还没有尝试解决，最近两天会按照豆瓣网的验证码处理方式试着解决一下。
+5、post数据一定要给对！！！post的页面一定要找对！！第一步错了肯定不会有后续了
